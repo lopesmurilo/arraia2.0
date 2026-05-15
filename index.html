@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arraiá Digital</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        /* Estilo do container que simula um celular */
+        .mobile-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100dvh;
+            background-color: #fffaf0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (min-width: 640px) {
+            .mobile-container {
+                height: 820px;
+                border-radius: 2.5rem;
+                border: 12px solid #262626;
+            }
+            .nav-bar {
+                border-bottom-left-radius: 1.5rem;
+                border-bottom-right-radius: 1.5rem;
+            }
+        }
+
+        /* Ocultar barra de rolagem */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animações */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-out forwards; }
+        .tab-content.active { display: block; }
+        .animate-pop { animation: pop 0.3s ease-in-out; }
+
+        /* Decoração: Bandeirinhas */
+        .bandeirinha {
+            width: 0; height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 25px solid;
+            display: inline-block;
+            margin: 0 2px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+        }
+
+        /* Toast de notificação */
+        #toast {
+            transition: opacity 0.3s, transform 0.3s;
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body onclick="iniciarMusica()"> <!-- Inicia música no primeiro clique (Regra dos navegadores) -->
+
+    <div class="mobile-container">
+        
+        <!-- Header -->
+        <header class="bg-orange-600 text-white p-4 shadow-md relative z-20 flex justify-between items-center h-16">
+            <h1 class="text-xl font-bold tracking-wide flex items-center gap-2">
+                <i data-lucide="flame"></i> Arraiá
+            </h1>
+            
+            <!-- CONTROLES NOVOS: Música e Milhas -->
+            <div class="flex items-center gap-3">
+                <button id="btn-musica" onclick="toggleMusica(event)" class="text-white/80 hover:text-white transition">
+                    <i data-lucide="music-2" class="w-5 h-5"></i>
+                </button>
+                <div class="bg-amber-800/40 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 border border-amber-500/30 shadow-inner" id="contador-milhas">
+                    🌽 <span id="qtd-graos">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Bandeirinhas Decorativas -->
+        <div class="flex w-full justify-around absolute top-16 left-0 right-0 pointer-events-none opacity-90 z-10" id="bandeirinhas-container"></div>
+
+        <!-- Área de Conteúdo -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative z-0 p-4 pb-24 pt-8" id="main-content">
+            
+            <!-- ABA INÍCIO -->
+            <div id="tab-home" class="tab-content active">
+                <div class="flex flex-col items-center">
+                    
+                    <!-- Avatar Central com Lógica do Chapéu -->
+                    <div class="relative mb-6">
+                        <div id="chapeu-palha" class="absolute -top-6 -right-4 text-5xl hidden z-10 filter drop-shadow-md transition-transform hover:rotate-12 cursor-pointer">👒</div>
+                        <div class="w-32 h-32 bg-orange-100 rounded-full flex items-center justify-center border-4 border-dashed border-orange-400">
+                            <i data-lucide="tent" class="text-orange-500 w-16 h-16"></i>
+                        </div>
+                    </div>
+                    
+                    <h2 class="text-3xl font-bold text-amber-900 mb-2 text-center">Bão demais da conta!</h2>
+                    <p class="text-center text-amber-700 mb-6 font-medium">
+                        Bem-vindo ao aplicativo oficial do nosso Arraiá. Aqui ocê encontra tudo que precisa!
+                    </p>
+
+                    <!-- LOJA DE MILHAS: Chapéu de Palha -->
+                    <div id="loja-milhas" class="w-full bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 mb-8 text-center shadow-sm relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 opacity-10 text-6xl">🌽</div>
+                        <h3 class="font-bold text-amber-900 mb-1 flex items-center justify-center gap-1">
+                            <i data-lucide="store" class="w-4 h-4"></i> Lojinha do Arraiá
+                        </h3>
+                        <p class="text-xs text-amber-700 mb-3">Junte <b>50 grãos de milho</b> comprando no cardápio e troque por um chapéu digital!</p>
+                        <button onclick="comprarChapeu()" id="btn-comprar-chapeu" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-xl shadow transition-transform active:scale-95 text-sm">
+                            Trocar 50 🌽 por Chapéu
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 w-full">
+                        <button onclick="switchTab('correio')" class="bg-red-500 hover:bg-red-600 text-white rounded-2xl p-5 flex flex-col items-center justify-center shadow-lg active:scale-95 transition-transform border-b-4 border-red-700">
+                            <i data-lucide="message-square-heart" class="mb-2 w-8 h-8"></i>
+                            <span class="font-bold text-sm text-center">Correio Elegante</span>
+                        </button>
+                        <button onclick="switchTab('menu')" class="bg-amber-500 hover:bg-amber-600 text-white rounded-2xl p-5 flex flex-col items-center justify-center shadow-lg active:scale-95 transition-transform border-b-4 border-amber-700">
+                            <i data-lucide="utensils" class="mb-2 w-8 h-8"></i>
+                            <span class="font-bold text-sm text-center">Cardápio</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA CORREIO ELEGANTE -->
+            <div id="tab-correio" class="tab-content">
+                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-red-100 mb-6 relative overflow-hidden">
+                    <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+                        <i data-lucide="heart" class="text-red-500 fill-current"></i>
+                        Mandar Correio
+                    </h3>
+                    
+                    <div id="supabase-alert" class="bg-yellow-100 text-yellow-800 p-3 rounded-xl mb-4 text-xs font-medium border border-yellow-300 hidden">
+                        ⚠️ <b>Atenção Desenvolvedor:</b> Insira sua URL e Anon Key do Supabase no arquivo JavaScript para ativar o banco de dados.
+                    </div>
+
+                    <div id="msg-success" class="bg-green-100 text-green-700 p-3 rounded-xl mb-4 flex items-center gap-2 text-sm font-bold border border-green-200 hidden">
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i> Entregue sô!
+                    </div>
+
+                    <form id="form-correio" class="space-y-3 relative z-10">
+                        <div class="flex gap-3">
+                            <input type="text" id="input-de" placeholder="De: (Opcional)" maxlength="20" class="w-1/2 p-3 bg-red-50 border border-red-100 rounded-xl outline-none focus:ring-2 focus:ring-red-400 text-red-900 font-medium">
+                            <input type="text" id="input-para" placeholder="Para quem?" required maxlength="20" class="w-1/2 p-3 bg-red-50 border border-red-100 rounded-xl outline-none focus:ring-2 focus:ring-red-400 text-red-900 font-medium">
+                        </div>
+                        
+                        <!-- NOVA FUNCIONALIDADE: Gerador de Cantadas -->
+                        <div class="relative">
+                            <textarea id="input-msg" required placeholder="Escreva seu xaveco caipira aqui..." maxlength="150" class="w-full p-3 bg-red-50 border border-red-100 rounded-xl outline-none focus:ring-2 focus:ring-red-400 text-red-900 h-24 resize-none font-medium pr-12"></textarea>
+                            <button type="button" onclick="gerarCantadaAutomatica()" class="absolute bottom-3 right-3 bg-red-200 text-red-700 p-2 rounded-lg hover:bg-red-300 transition active:scale-95 shadow-sm" title="Gerar Cantada Caipira">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        
+                        <button type="submit" id="btn-submit" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-transform active:scale-95 flex justify-center items-center gap-2">
+                            <span>Enviar Recadinho</span> <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <h3 class="font-bold text-amber-900 text-lg mb-4 flex items-center gap-2">Mural de Recados</h3>
+                
+                <div id="lista-recados" class="space-y-4">
+                    <div class="text-center text-amber-700/60 p-8 border-2 border-dashed border-amber-200 rounded-2xl font-medium">
+                        Carregando recadinhos...
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA CARDÁPIO -->
+            <div id="tab-menu" class="tab-content">
+                <div class="bg-amber-100 text-amber-800 p-3 rounded-xl mb-4 text-xs font-bold border border-amber-200 flex items-center gap-2 shadow-sm">
+                    <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+                    A cada R$ 1,00 gasto no cardápio, ocê ganha 1 Grão de Milho 🌽 pra trocar por prêmios!
+                </div>
+                <div id="menu-container"></div>
+            </div>
+
+            <!-- ABA AGENDA -->
+            <div id="tab-schedule" class="tab-content">
+                <div class="relative">
+                    <div class="absolute left-[39px] top-4 bottom-8 w-1 bg-amber-200 rounded-full"></div>
+                    <div id="schedule-container" class="space-y-6 relative"></div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Toast Notification (Notificações Flutuantes) -->
+        <div id="toast" class="absolute bottom-20 left-4 right-4 bg-green-600 text-white p-3 rounded-xl shadow-lg flex items-center gap-3 z-50 pointer-events-none font-bold text-sm">
+            <i data-lucide="party-popper" class="w-5 h-5"></i>
+            <span id="toast-msg">Mensagem</span>
+        </div>
+
+        <!-- Barra de Navegação -->
+        <nav class="nav-bar absolute bottom-0 w-full bg-white border-t border-amber-200 flex justify-around px-2 pb-4 pt-2 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] z-20">
+            <button onclick="switchTab('home')" class="nav-btn flex flex-col items-center flex-1 text-orange-600 transition-all" data-tab="home">
+                <i data-lucide="home" class="mb-1"></i>
+                <span class="text-[11px] font-bold">Início</span>
+            </button>
+            <button onclick="switchTab('correio')" class="nav-btn flex flex-col items-center flex-1 text-amber-700/50 transition-all" data-tab="correio">
+                <i data-lucide="message-square-heart" class="mb-1"></i>
+                <span class="text-[11px] font-bold">Correio</span>
+            </button>
+            <button onclick="switchTab('menu')" class="nav-btn flex flex-col items-center flex-1 text-amber-700/50 transition-all" data-tab="menu">
+                <i data-lucide="store" class="mb-1"></i>
+                <span class="text-[11px] font-bold">Cardápio</span>
+            </button>
+            <button onclick="switchTab('schedule')" class="nav-btn flex flex-col items-center flex-1 text-amber-700/50 transition-all" data-tab="schedule">
+                <i data-lucide="calendar-clock" class="mb-1"></i>
+                <span class="text-[11px] font-bold">Agenda</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Áudio Oculto (Spotify / Sanfoneiro) -->
+    <!-- Nota: Usando um áudio genérico de sanfona/forró para simular o player, pois links diretos de iframe do Spotify não fazem autoplay sem interação forte -->
+    <audio id="audio-player" loop preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Lógica JavaScript Principal -->
+    <script>
+        // ==========================================
+        // NOVAS FUNCIONALIDADES: MILHAS E MÚSICA
+        // ==========================================
+        
+        let graosDeMilho = 0;
+        let temChapeu = false;
+        const CUSTO_CHAPEU = 50;
+
+        // 1. Sistema de Música (Spotify/Sanfoneiro)
+        const audioPlayer = document.getElementById('audio-player');
+        let musicaIniciada = false;
+        let musicaTocando = false;
+
+        function iniciarMusica() {
+            if (!musicaIniciada) {
+                audioPlayer.play().then(() => {
+                    musicaIniciada = true;
+                    musicaTocando = true;
+                    atualizarIconeMusica();
+                }).catch(err => console.log("Autoplay bloqueado aguardando interação."));
+            }
+        }
+
+        function toggleMusica(e) {
+            e.stopPropagation(); // Evita conflito com o iniciarMusica global
+            if (musicaTocando) {
+                audioPlayer.pause();
+                musicaTocando = false;
+            } else {
+                audioPlayer.play();
+                musicaTocando = true;
+                musicaIniciada = true;
+            }
+            atualizarIconeMusica();
+        }
+
+        function atualizarIconeMusica() {
+            const btn = document.getElementById('btn-musica');
+            if (musicaTocando) {
+                btn.classList.remove('text-white/50');
+                btn.classList.add('text-green-300', 'animate-pulse');
+                btn.innerHTML = '<i data-lucide="music" class="w-5 h-5"></i>';
+            } else {
+                btn.classList.remove('text-green-300', 'animate-pulse');
+                btn.classList.add('text-white/50');
+                btn.innerHTML = '<i data-lucide="music-4" class="w-5 h-5"></i>';
+            }
+            lucide.createIcons();
+        }
+
+        // 2. Sistema de Milhas (Grãos de Milho)
+        function comprarNoCardapio(precoTexto) {
+            // Converte string "10,00" para número 10
+            const preco = parseFloat(precoTexto.replace(',', '.'));
+            const graosGanhos = Math.floor(preco); // 1 grão por real
+            
+            graosDeMilho += graosGanhos;
+            
+            // Animação do contador
+            const contadorEl = document.getElementById('contador-milhas');
+            contadorEl.classList.remove('animate-pop');
+            void contadorEl.offsetWidth; // trigger reflow
+            contadorEl.classList.add('animate-pop');
+            
+            document.getElementById('qtd-graos').innerText = graosDeMilho;
+            mostrarToast(`Eita coisa boa! Ganhou ${graosGanhos} 🌽`);
+            verificarBotaoChapeu();
+        }
+
+        function verificarBotaoChapeu() {
+            const btn = document.getElementById('btn-comprar-chapeu');
+            if(temChapeu) {
+                btn.innerText = "Chapéu já resgatado!";
+                btn.classList.replace('bg-amber-500', 'bg-gray-400');
+                btn.disabled = true;
+            } else if (graosDeMilho >= CUSTO_CHAPEU) {
+                btn.classList.replace('bg-amber-500', 'bg-green-500');
+                btn.classList.replace('hover:bg-amber-600', 'hover:bg-green-600');
+                btn.innerText = "Resgatar Chapéu de Palha!";
+            }
+        }
+
+        function comprarChapeu() {
+            if (temChapeu) return;
+            if (graosDeMilho >= CUSTO_CHAPEU) {
+                graosDeMilho -= CUSTO_CHAPEU;
+                temChapeu = true;
+                
+                document.getElementById('qtd-graos').innerText = graosDeMilho;
+                document.getElementById('chapeu-palha').classList.remove('hidden');
+                document.getElementById('chapeu-palha').classList.add('animate-pop');
+                
+                verificarBotaoChapeu();
+                mostrarToast("Aí sim! Chapéu resgatado com sucesso! 👒");
+            } else {
+                mostrarToast(`Falta ${CUSTO_CHAPEU - graosDeMilho} 🌽 pra pegar o chapéu!`);
+                // Troca a cor do toast pra amarelo pra indicar aviso
+                document.getElementById('toast').classList.replace('bg-green-600', 'bg-yellow-500');
+                setTimeout(() => {
+                    document.getElementById('toast').classList.replace('bg-yellow-500', 'bg-green-600');
+                }, 3000);
+            }
+        }
+
+        function mostrarToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 3. Cantadas Caipiras Automáticas
+        const cantadasCaipiras = [
+            "Pula a fogueira, vem pro meu coração!",
+            "Ocê não é fogueira, mas esquentou meu coração!",
+            "Ocê é o recheio da minha pamonha!",
+            "Se ocê fosse doce, seria o pé de moleque mais doce do arraiá!",
+            "Me chama de amendoim e me joga no teu quentão!",
+            "Ocê é o milho que faltava na minha canjica!",
+            "Sabe a diferença entre ocê e a fogueira? A fogueira esquenta a festa, ocê esquenta minha vida!",
+            "Nesse São João, só quero dançar quadrilha se for pra ser seu par."
+        ];
+
+        function gerarCantadaAutomatica() {
+            const textarea = document.getElementById('input-msg');
+            const cantadaSorteada = cantadasCaipiras[Math.floor(Math.random() * cantadasCaipiras.length)];
+            
+            textarea.value = ""; // limpa
+            let i = 0;
+            
+            // Efeito de digitação para ficar legal
+            const intervalo = setInterval(() => {
+                textarea.value += cantadaSorteada.charAt(i);
+                i++;
+                if (i >= cantadaSorteada.length) clearInterval(intervalo);
+            }, 30);
+        }
+
+        // ==========================================
+        // CÓDIGO ORIGINAL (SUPABASE, TABS, ETC)
+        // ==========================================
+        
+        const SUPABASE_URL = 'https://zhgyiddhqzxdnbaokqpe.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_4TK4a9Abl8tqocG6OZkcug_uz7aWFbj';
+
+        let supabaseClient = null;
+        let isSupabaseConfigured = SUPABASE_URL !== 'COLOQUE_SUA_URL_DO_SUPABASE_AQUI';
+
+        if (isSupabaseConfigured) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        lucide.createIcons();
+
+        // Renderizar Bandeirinhas
+        const cores = ['#ef4444', '#eab308', '#3b82f6', '#22c55e', '#ec4899'];
+        const containerBandeirinhas = document.getElementById('bandeirinhas-container');
+        for(let i=0; i<12; i++) {
+            const div = document.createElement('div');
+            div.className = 'bandeirinha';
+            div.style.borderTopColor = cores[i % cores.length];
+            containerBandeirinhas.appendChild(div);
+        }
+
+        // Navegação de Abas
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            
+            const targetTab = document.getElementById('tab-' + tabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                // A biblioteca Lucide substitui o elemento <i> por um <svg>, então precisamos procurar por ambos
+                const icon = btn.querySelector('i') || btn.querySelector('svg');
+                
+                if(btn.dataset.tab === tabId) {
+                    btn.classList.replace('text-amber-700/50', 'text-orange-600');
+                    if (icon) icon.classList.add('-translate-y-1', 'scale-110');
+                } else {
+                    btn.classList.replace('text-orange-600', 'text-amber-700/50');
+                    if (icon) icon.classList.remove('-translate-y-1', 'scale-110');
+                }
+            });
+
+            if (tabId === 'correio' && !isSupabaseConfigured) {
+                document.getElementById('supabase-alert').classList.remove('hidden');
+                renderRecadosFalsos();
+            }
+        }
+
+        const formCorreio = document.getElementById('form-correio');
+        const listaRecados = document.getElementById('lista-recados');
+
+        async function fetchMensagens() {
+            if (!isSupabaseConfigured) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('correio_junino')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                renderizarRecados(data);
+            } catch (error) {
+                listaRecados.innerHTML = `<div class="text-red-500 text-center p-4">Erro ao conectar com o Supabase. Verifique a tabela 'correio_junino'.</div>`;
+            }
+        }
+
+        if (isSupabaseConfigured) {
+            // Nota: O ambiente Canvas não suporta conexões WebSocket, o que causa erro ao tentar se inscrever num canal em tempo real do Supabase. 
+            // O código abaixo foi comentado para evitar esse erro, mas os dados ainda serão buscados normalmente.
+            /*
+            const correioChannel = supabaseClient.channel('correio_realtime')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'correio_junino' }, (payload) => {
+                    fetchMensagens();
+                }).subscribe();
+            */
+            fetchMensagens();
+        }
+
+        formCorreio.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const de = document.getElementById('input-de').value.trim() || 'Alguém';
+            const para = document.getElementById('input-para').value.trim();
+            const msg = document.getElementById('input-msg').value.trim();
+            const btn = document.getElementById('btn-submit');
+
+            if (!isSupabaseConfigured) {
+                mostrarToast("Configure o Supabase no código para salvar!");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<span>Ajeitando...</span>`;
+            btn.classList.add('opacity-70');
+
+            try {
+                const { error } = await supabaseClient
+                    .from('correio_junino')
+                    .insert([{ de: de, para: para, msg: msg }]);
+
+                if (error) throw error;
+
+                document.getElementById('input-de').value = '';
+                document.getElementById('input-para').value = '';
+                document.getElementById('input-msg').value = '';
+                
+                const successMsg = document.getElementById('msg-success');
+                successMsg.classList.remove('hidden');
+                setTimeout(() => successMsg.classList.add('hidden'), 3000);
+                
+                // Força atualização já que desativamos o Realtime via WebSocket acima
+                fetchMensagens();
+
+            } catch (error) {
+                alert("Vixe, deu erro ao enviar o correio!");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Enviar Recadinho</span> <i data-lucide="send" class="w-4 h-4"></i>`;
+                btn.classList.remove('opacity-70');
+                lucide.createIcons();
+            }
+        });
+
+        function renderizarRecados(mensagens) {
+            if (mensagens.length === 0) {
+                listaRecados.innerHTML = `
+                    <div class="text-center text-amber-700/60 p-8 border-2 border-dashed border-amber-200 rounded-2xl font-medium">
+                        Nenhum recado na fogueira ainda. Seja o primeiro!
+                    </div>
+                `;
+                return;
+            }
+            listaRecados.innerHTML = mensagens.map(m => `
+                <div class="bg-[#fff8e1] p-4 rounded-2xl shadow-sm border-2 border-dashed border-amber-300 relative animate-fade-in">
+                    <div class="flex justify-between items-end mb-2 border-b border-amber-200/60 pb-2">
+                        <span class="font-bold text-amber-900 text-sm">Para: <span class="text-red-600 text-base">${m.para}</span></span>
+                        <span class="text-[11px] text-amber-600 font-bold bg-amber-100 px-2 py-0.5 rounded-md">De: ${m.de}</span>
+                    </div>
+                    <p class="text-amber-800 font-medium italic mt-2 leading-relaxed text-sm">"${m.msg}"</p>
+                </div>
+            `).join('');
+        }
+
+        function renderRecadosFalsos() {
+            renderizarRecados([
+                { de: "João", para: "Maria", msg: "Ocê é a pamonha do meu milho verde!" },
+                { de: "Alguém", para: "Pedro", msg: "Te achei bão demais no forró!" }
+            ]);
+        }
+
+        // ==========================================
+        // RENDERIZAÇÃO DO CARDÁPIO (AGORA COM BOTÃO DE COMPRA)
+        // ==========================================
+        const menuData = [
+            { cat: "Salgados", items: [
+                { name: 'Cachorro Quente', price: '10,00', emoji: '🌭' },
+                { name: 'Milho Cozido', price: '6,00', emoji: '🌽' },
+                { name: 'Espetinho', price: '12,00', emoji: '🍢' }
+            ]},
+            { cat: "Doces", items: [
+                { name: 'Maçã do Amor', price: '5,00', emoji: '🍎' },
+                { name: 'Canjica', price: '7,00', emoji: '🥣' }
+            ]},
+            { cat: "Bebidas", items: [
+                { name: 'Quentão', price: '8,00', emoji: '🍷' },
+                { name: 'Refrigerante', price: '6,00', emoji: '🥤' }
+            ]}
+        ];
+
+        document.getElementById('menu-container').innerHTML = menuData.map(cat => `
+            <div class="mb-6">
+                <h3 class="font-bold text-amber-900 text-lg mb-3 border-b-2 border-amber-200/60 pb-2">${cat.cat}</h3>
+                <div class="grid gap-3">
+                    ${cat.items.map(item => `
+                        <div class="flex items-center justify-between bg-white p-3.5 rounded-2xl shadow-sm border border-amber-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-xl">${item.emoji}</div>
+                                <span class="font-bold text-amber-900">${item.name}</span>
+                            </div>
+                            <button onclick="comprarNoCardapio('${item.price}')" class="font-black text-green-700 bg-green-100 hover:bg-green-200 px-3 py-2 rounded-xl text-sm flex items-center gap-1 transition-colors active:scale-95 shadow-sm">
+                                R$ ${item.price} <i data-lucide="shopping-cart" class="w-3 h-3 ml-1"></i>
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        const scheduleData = [
+            { time: '18:00', event: 'Abertura dos Portões', icon: 'door-open' },
+            { time: '19:30', event: 'Show de Forró', icon: 'music' },
+            { time: '21:30', event: 'Grande Quadrilha', icon: 'users' },
+            { time: '22:30', event: 'Sorteio do Bingo', icon: 'ticket' }
+        ];
+
+        document.getElementById('schedule-container').innerHTML = scheduleData.map(item => `
+            <div class="flex gap-4 items-center relative z-10">
+                <div class="w-16 h-16 bg-white rounded-full flex-shrink-0 flex items-center justify-center border-4 border-amber-200 shadow-sm">
+                    <div class="font-black text-amber-900 text-sm">${item.time}</div>
+                </div>
+                <div class="bg-white flex-1 p-4 rounded-2xl shadow-sm border border-amber-100">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i data-lucide="${item.icon}" class="w-4 h-4 text-orange-500"></i>
+                        <span class="font-bold text-amber-900">${item.event}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        lucide.createIcons();
+    </script>
+</body>
+</html>
